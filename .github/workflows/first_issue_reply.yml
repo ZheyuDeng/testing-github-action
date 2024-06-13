@@ -16,49 +16,20 @@ jobs:
       - name: Checkout main repository
         uses: actions/checkout@v4
 
-      - name: Check if GitHub CLI is installed
-        id: check-gh-cli
-        run: |
-          if ! command -v gh &> /dev/null; then
-            echo "GitHub CLI not found. Installing..."
-            sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-key C99B11DEB97541F0
-            sudo apt-add-repository https://cli.github.com/packages
-            sudo apt update
-            sudo apt install gh -y
-          else
-            echo "GitHub CLI is already installed."
-          fi
-
-      - name: Authenticate GitHub CLI
-        run: gh auth login --with-token <<< "${{ secrets.GITHUB_TOKEN }}"
-
       - name: Check for existing bot comments
         id: check-comments
         run: |
           ISSUE_NUMBER=${{ github.event.issue.number }}
-          CHECK_TEXT="Testing: Thank you for your interest in the Submitty open source project."
-          echo "Fetching comments for issue #$ISSUE_NUMBER"
-          COMMENTS=$(gh issue view "$ISSUE_NUMBER" --json comments --jq '.comments[].body')
-          echo "Comments on the issue: $COMMENTS"
-          if echo "$COMMENTS" | grep -Fq "$CHECK_TEXT"; then
-            echo "bot_comment_exists=true" >> $GITHUB_ENV
-          else
-            echo "bot_comment_exists=false" >> $GITHUB_ENV
-          fi
+          BOT_COMMENT_EXISTS=$(gh issue view "$ISSUE_NUMBER" --json comments --jq '.comments[].body' | grep -q "Hi @$USERNAME," && echo "true" || echo "false")
+          echo "bot_comment_exists=$BOT_COMMENT_EXISTS" >> $GITHUB_ENV
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           USERNAME: ${{ github.event.comment.user.login }}
 
-      - name: Print environment variables for debugging
-        run: |
-          echo "bot_comment_exists=${{ env.bot_comment_exists }}"
-          echo "Issue number: $ISSUE_NUMBER"
-          echo "Check text: $CHECK_TEXT"
-
       - name: First issue reply
         if: env.bot_comment_exists == 'false'
         run: |
-          gh issue comment "$ISSUE" --body "Hiiiiiiiiiiiiiiiiiiiiiii"
+          gh issue comment "$ISSUE" --body "Hi @$USERNAME,"$'\n\n'"$(cat .github/FIRST_ISSUE_REPLY.md)"
         env:
           ISSUE: ${{ github.event.issue.number }}
           USERNAME: ${{ github.event.comment.user.login }}
